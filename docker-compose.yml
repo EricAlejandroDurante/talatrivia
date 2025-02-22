@@ -1,0 +1,76 @@
+services:
+  django:
+    container_name: talatrivia
+    image: talatrivia
+    build:
+      context: .
+      dockerfile: Dockerfile 
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    environment:
+      - DJANGO_SECRET_KEY="django-insecure-29kf&q4an3x5yc8&4!#(yb0thhf7wq#^f)z&lydu2y3xd#ez)4"
+      - POSTGRES_DB=db_talatrivia
+      - POSTGRES_USER=talatrivia_user
+      - POSTGRES_PASSWORD=kjsASJDB!&8321
+      - DB_HOST=db
+      - DB_PORT=5432
+    networks:
+      - talatrivia_network
+    volumes:
+      - ./logs:/var/log/talatrivia
+
+  db:
+    image: postgres:latest
+    ports:
+      - "5432:5432"
+    restart: always
+    environment:
+      POSTGRES_DB: db_talatrivia
+      POSTGRES_USER: talatrivia_user
+      POSTGRES_PASSWORD: kjsASJDB!&8321
+    networks:
+      - talatrivia_network
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+  celery_beat:
+    build: .
+    command: poetry run celery -A config beat --loglevel=info
+    depends_on:
+      - rabbitmq
+      - django
+    networks:
+      - talatrivia_network
+    environment:
+      - CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672/
+
+  celery:
+    build: .
+    command: poetry run celery -A config worker --loglevel=info
+    depends_on:
+      - rabbitmq
+      - django
+    networks:
+      - talatrivia_network
+    environment:
+      - CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672/
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672" 
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    networks:
+      - talatrivia_network
+
+volumes:
+  db_data: 
+
+networks:
+  talatrivia_network:
+    driver: bridge
